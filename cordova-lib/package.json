@@ -1,8 +1,8 @@
 {
   "author": "Apache Software Foundation",
-  "name": "cordova-lib",
+  "name": "cordova-lib-tmp4cca",
   "description": "Apache Cordova tools core lib and API",
-  "version": "0.21.6",
+  "version": "0.21.7",
   "repository": {
     "type": "git",
     "url": "git://git-wip-us.apache.org/repos/asf/cordova-lib.git"
