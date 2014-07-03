@@ -41,7 +41,7 @@
   "devDependencies": {
     "temp": "0.6.x",
     "jshint": "2.5.x",
-    "jasmine-node": "~1"
+    "jasmine-node": "1.14.1"
   },
   "scripts": {
     "test": "npm run jasmine && npm run jshint",
