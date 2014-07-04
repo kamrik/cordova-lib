@@ -5,9 +5,10 @@ build:
   # The steps that will be executed on build
   steps:
     - script:
-        name: rm serve spec
+        name: rm flaky specs
         code: |
           rm cordova-lib/spec-cordova/serve.spec.js
+          rm cordova-lib/spec-cordova/install.spec.js
     # A step that executes `npm install` command
     - npm-install:
         cwd: cordova-lib/
