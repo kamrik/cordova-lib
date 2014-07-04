@@ -19,8 +19,7 @@
 #
 -->
 
-[![Wercker
-status](https://app.wercker.com/status/53b5eab95cf634856d000130/m)](https://app.wercker.com/project/bykey/53b5eab95cf634856d000130)
+[![wercker status](https://app.wercker.com/status/052e4bbf2e39d0b478a05899c2c4ed09/m "wercker status")](https://app.wercker.com/project/bykey/052e4bbf2e39d0b478a05899c2c4ed09)
 
 # cordova-lib
 Contains npm modules used primarily by [cordova](https://github.com/apache/cordova-cli/) and [plugman](https://github.com/apache/cordova-plugman/).
