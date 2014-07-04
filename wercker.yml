@@ -8,7 +8,7 @@ build:
         name: rm flaky specs
         code: |
           rm cordova-lib/spec-cordova/serve.spec.js
-          rm cordova-lib/spec-cordova/install.spec.js
+          rm cordova-lib/spec-plugman/install.spec.js
     # A step that executes `npm install` command
     - npm-install:
         cwd: cordova-lib/
