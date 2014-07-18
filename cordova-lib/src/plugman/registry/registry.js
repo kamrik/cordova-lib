@@ -194,7 +194,7 @@ function initSettings() {
 
     // setting up settings
     // obviously if settings dir does not exist settings is going to be empty
-    if (!fs.existsSync(plugmanConfigDir)) {
+    if(!fs.existsSync(plugmanConfigDir)) {
         fs.mkdirSync(plugmanConfigDir);
         fs.mkdirSync(plugmanCacheDir);
     }
