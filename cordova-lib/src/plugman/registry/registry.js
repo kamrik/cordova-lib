@@ -190,11 +190,11 @@ module.exports = {
 function initSettings() {
     var settings = module.exports.settings;
     // check if settings already set
-    if(settings !== null) return Q(settings);
+    if (settings !== null) return Q(settings);
 
     // setting up settings
     // obviously if settings dir does not exist settings is going to be empty
-    if(!fs.existsSync(plugmanConfigDir)) {
+    if (!fs.existsSync(plugmanConfigDir)) {
         fs.mkdirSync(plugmanConfigDir);
         fs.mkdirSync(plugmanCacheDir);
     }
