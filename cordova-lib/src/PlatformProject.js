@@ -5,6 +5,8 @@ var fs = require('fs');
 var shell = require('shelljs');
 var et = require('elementtree');
 var __ = require('underscore');
+var _prepare = require('./cordova/prepare');
+var mergeXml = _prepare._mergeXml;
 
 
 var superspawn = require('./cordova/superspawn');
@@ -28,7 +30,7 @@ function PlatformProject() {
 
 
 PlatformProject.prototype.open = open;
-function open(root) {
+function open(root, opts) {
     var self = checkThis(this);
     var rootDir = root || self.root;
     self.root = rootDir;
@@ -53,7 +55,9 @@ function init(platformTemplateDir, rootDir, opts) {
     var copts = { stdio: 'inherit' };
 
     // TODO, make normal logging, be able to accept different loggers
+    // currently not plumbed well, no logger in open().
     var logger = opts.logger || console;
+    self.logger = logger;
 
     var bin = path.join(platformTemplateDir, 'bin', 'create');
     var args = [self.root];
@@ -73,6 +77,12 @@ function init(platformTemplateDir, rootDir, opts) {
     // Either savepoints or smart enough merging should take care of it all
     var defaultRuntimeConfigFile = path.join(self.root, 'cordova', 'defaults.xml');
     shell.cp('-f', defaultRuntimeConfigFile, self.parser.config_xml());
+
+    // TMP: Create plutform_www, should either exist in platform template
+    // or however it should be done with browserify.
+    var platform_www = path.join(self.root, 'platform_www');
+    shell.mkdir('-p', platform_www);
+    shell.cp('-f', path.join(self.wwwDir, 'cordova.js'), path.join(platform_www, 'cordova.js'));
 }
 
 
@@ -167,31 +177,56 @@ function addPluginsFrom(pluginDirs, opts) {
 
     // TODO: Solve the plugin development case where a single plugin needs to be removed and reinstalled quickly.
 
+    // NEXT2: display plugin info (maybe not, might be better done by user tool)
+    // NEXT1: hooks after_plugin_install
+
 }
 
 PlatformProject.prototype.updateConfig = updateConfig;
 function updateConfig(cfg) {
+    var self = checkThis(this);
+
+    var platform_cfg = new ConfigParser(self.parser.config_xml());
+    mergeXml(cfg.doc.getroot(), platform_cfg.doc.getroot(), self.platform, true);
+    platform_cfg.write();
+
+    // Update all the project files
+    self.parser.update_from_config(cfg);
 
 }
 
 PlatformProject.prototype.copyWww = copyWww;
-function copyWww(wwwDir, opts) {
-
+function copyWww(wwwSrc, opts) {
+    var self = checkThis(this);
+    //  - Copy / update web files (including from plugins? or cache the plugins part of this somewhere)
+    //    parser.update_www(); // nukes www, must be changed or called before anything else that writes to www. use plugins_www
+    shell.cp('-rf', path.join(wwwSrc, '*'), self.wwwDir);
+    // Copy over stock platform www assets (cordova.js)
+    shell.cp('-rf', path.join(self.root, 'platform_www', '*'), self.wwwDir);
 }
 
 PlatformProject.prototype.save = save;
 function save() {
-
+    // Sync/serialize project info to a file in wofs (if needed, for plugin rm and reapplying plugin munges etc maybe)
+    // wofs.write() if we are using RAM cached fs.
 }
 
 PlatformProject.prototype.build = build;
-function build() {
+function build(opts) {
+    var self = checkThis(this);
+    var bin = path.join(self.root, 'cordova', 'build');
+    // var args = [];
 
+    // Sync version, use superspawn for Async.
+    // shell.exec([bin].concat(args).join(' '));
+    shell.exec(bin);
 }
 
 PlatformProject.prototype.run = run;
-function run() {
-
+function run(opts) {
+    var self = checkThis(this);
+    var bin = path.join(self.root, 'cordova', 'run');
+    shell.exec(bin);
 }
 
 /*

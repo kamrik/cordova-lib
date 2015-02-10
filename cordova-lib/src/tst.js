@@ -3,6 +3,7 @@
 var AndroidProject = require('./AndroidProject');
 var shell = require('shelljs');
 var events = require('./events');
+var ConfigParser  = require('./configparser/ConfigParser');
 
 // Legacy logging
 events.on('log', console.log);
@@ -20,3 +21,8 @@ var prj = new AndroidProject();
 prj.init(platformTemplateDir, projDir);
 
 prj.addPluginsFrom('/Users/kamrik/src/coreproj/node_modules');
+
+var cfg = new ConfigParser('/Users/kamrik/src/coreproj/app/config.xml');
+prj.updateConfig(cfg);
+prj.copyWww('/Users/kamrik/src/coreproj/app/www')
+prj.run();
