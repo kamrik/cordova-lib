@@ -1,4 +1,8 @@
+// PlatformProject class, to be inherited by platform specific classes
+// like AndroidProject of BrowserProject
+
 /* jshint unused:false, quotmark:false, sub:true */
+
 var Q = require('q');
 var path = require('path');
 var fs = require('fs');
