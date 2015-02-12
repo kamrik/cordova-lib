@@ -93,7 +93,7 @@ function init(platformTemplateDir, rootDir, opts) {
 PlatformProject.prototype.addPluginsFrom = addPluginsFrom;
 function addPluginsFrom(pluginDirs, opts) {
     var self = checkThis(this);
-    var plugins = self.loadPlugins(pluginDirs);
+    var plugins = self.loadPlugins(pluginDirs, opts);
 
     // Install plugins into this platform project
     // NEXT2: check some constraints (dependencies, compatibility to target platfor(s))
@@ -247,7 +247,7 @@ function funcName(plugins, opts) {
 // ################# Helpers
 
 PlatformProject.prototype.loadPlugins = loadPlugins;
-function loadPlugins(pluginDirs) {
+function loadPlugins(pluginDirs, opts) {
     var self = checkThis(this);
     if (!__.isArray(pluginDirs)) {
         pluginDirs = [pluginDirs];
@@ -260,6 +260,22 @@ function loadPlugins(pluginDirs) {
         return self.pluginProvider.getAllWithinSearchPath(d);
     });
     plugins = __.flatten(plugins);
+
+    // Load test plugins, if requested.
+    if (opts.addtests) {
+        var testPlugins = [];
+        plugins.forEach(function(p){
+            var testsDir = path.join(p.dir, 'tests');
+            debugger;
+            if (fs.existsSync(testsDir)) {  // Maybe should check for existence of plugin.xml file.
+                var tp = self.pluginProvider.get(testsDir);
+                testPlugins.push(tp);
+            }
+
+        });
+        plugins = plugins.concat(testPlugins);
+    }
+
     return plugins;
 }
 

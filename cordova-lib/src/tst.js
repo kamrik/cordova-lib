@@ -39,7 +39,7 @@ prj.updateConfig(cfg);
 // Copy www dir
 prj.copyWww(wwwDir);
 
-// save is currently a noop, but may be needed later, or might be implied by
+// save is currently a noop, but may be needed later, and/or might be implied by
 // build or run.
 prj.save();
 
