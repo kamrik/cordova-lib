@@ -6,6 +6,8 @@
 var Q = require('q');
 var path = require('path');
 var fs = require('fs');
+var semver = require('semver');
+var unorm = require('unorm');
 var shell = require('shelljs');
 var et = require('elementtree');
 var __ = require('underscore');
@@ -52,8 +54,14 @@ function open(root, opts) {
 }
 
 PlatformProject.prototype.init = init;
-function init(platformTemplateDir, rootDir, opts) {
+function init(opts) {
     var self = checkThis(this);
+
+    var platformTemplateDir = opts.template;
+    var rootDir = opts.rootDir;
+    var cfg = self.cfg =  opts.cfg;
+
+
     self.root = rootDir;
     opts = opts || {};
     var copts = { stdio: 'inherit' };
@@ -64,7 +72,11 @@ function init(platformTemplateDir, rootDir, opts) {
     self.logger = logger;
 
     var bin = path.join(platformTemplateDir, 'bin', 'create');
-    var args = [self.root];
+
+
+    var pkg = cfg.packageName().replace(/[^\w.]/g,'_');
+    var name = cfg.name(); // CB-6992 it is necessary to normalize characters to NFD on iOS
+    var args = [self.root, pkg, name];
 
     if (opts.link) {
         args.push('--link');
@@ -93,6 +105,7 @@ function init(platformTemplateDir, rootDir, opts) {
 PlatformProject.prototype.addPluginsFrom = addPluginsFrom;
 function addPluginsFrom(pluginDirs, opts) {
     var self = checkThis(this);
+    opts = opts || {};
     var plugins = self.loadPlugins(pluginDirs, opts);
 
     // Install plugins into this platform project
@@ -103,6 +116,16 @@ function addPluginsFrom(pluginDirs, opts) {
     // NEXT1: hooks before_plugin_install (context is the project object)
 
     // Handle install for all the files / assets
+
+    var handler = self.handler;
+    var project_files;
+    if (handler.parseProjectFile) {
+        project_files = handler.parseProjectFile(self.root);
+    }
+
+    var tmpPrj= {plugins_dir: path.join(self.root, self.cfg.name(), 'Plugins')};
+
+
     plugins.forEach(function(p) {
         var sourceFiles = p.getSourceFiles(self.platform);
         var headerFiles = p.getHeaderFiles(self.platform);
@@ -111,30 +134,30 @@ function addPluginsFrom(pluginDirs, opts) {
         var libFiles = p.getLibFiles(self.platform);
         var assetFiles = p.getAssets(self.platform);
 
-        var handler = self.handler;
+
         var installer = handler['source-file'].install;
         sourceFiles.forEach(function(item) {
-            installer(item, p.dir, self.root, p.id, {});
+            installer(item, p.dir, self.root, p.id, {}, project_files);
         });
 
         installer = handler['header-file'].install;
         headerFiles.forEach(function(item) {
-            installer(item, p.dir, self.root, p.id, {});
+            installer(item, p.dir, self.root, p.id, {}, project_files);
         });
 
         installer = handler['resource-file'].install;
         resourceFiles.forEach(function(item) {
-            installer(item, p.dir, self.root, p.id, {});
+            installer(item, p.dir, self.root, p.id, {}, project_files);
         });
 
         installer = handler['framework'].install;
         frameworkFiles.forEach(function(item) {
-            installer(item, p.dir, self.root, p.id, {});
+            installer(item, p.dir, self.root, p.id, {}, project_files);
         });
 
         installer = handler['lib-file'].install;
         libFiles.forEach(function(item) {
-            installer(item, p.dir, self.root, p.id, {});
+            installer(item, p.dir, self.root, p.id, {}, project_files);
         });
 
         // This was originally part of prepare
@@ -187,8 +210,9 @@ function addPluginsFrom(pluginDirs, opts) {
 }
 
 PlatformProject.prototype.updateConfig = updateConfig;
-function updateConfig(cfg) {
+function updateConfig() {
     var self = checkThis(this);
+    var cfg = self.cfg;
 
     var platform_cfg = new ConfigParser(self.parser.config_xml());
     mergeXml(cfg.doc.getroot(), platform_cfg.doc.getroot(), self.platform, true);
@@ -266,7 +290,6 @@ function loadPlugins(pluginDirs, opts) {
         var testPlugins = [];
         plugins.forEach(function(p){
             var testsDir = path.join(p.dir, 'tests');
-            debugger;
             if (fs.existsSync(testsDir)) {  // Maybe should check for existence of plugin.xml file.
                 var tp = self.pluginProvider.get(testsDir);
                 testPlugins.push(tp);

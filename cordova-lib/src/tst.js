@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 
+/* jshint unused: false */
+
 var AndroidProject = require('./AndroidProject');
+var IosProject = require('./IosProject');
 var shell = require('shelljs');
 var path = require('path');
 var events = require('./events');
@@ -18,23 +21,27 @@ var projDir = '/tmp/cdvtest';
 var configXml = '/Users/kamrik/src/coreproj/app/config.xml';
 var wwwDir = '/Users/kamrik/src/coreproj/app/www';
 var nodeModulesDir = '/Users/kamrik/src/coreproj/node_modules';
-var platformTemplateDir = path.join(nodeModulesDir, 'cordova-android');
+var platformTemplateDir = path.join(nodeModulesDir, 'cordova-ios');
 
 // Nuke the old dir entirely
 shell.rm('-rf', projDir);
 
 
-var prj = new AndroidProject();
+var cfg = new ConfigParser(configXml);
 
+// var prj = new AndroidProject();
+var prj = new IosProject();
 // Run `create` script from the platform template
-prj.init(platformTemplateDir, projDir);
+prj.init({
+    template: platformTemplateDir,
+    rootDir: projDir,
+    cfg: cfg,
+});
 
 // Add all plugins from node_modules dir
 prj.addPluginsFrom(nodeModulesDir);
 
-// Load config xml
-var cfg = new ConfigParser(configXml);
-prj.updateConfig(cfg);
+prj.updateConfig();
 
 // Copy www dir
 prj.copyWww(wwwDir);
