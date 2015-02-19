@@ -8,6 +8,7 @@ var shell = require('shelljs');
 var path = require('path');
 var events = require('./events');
 var ConfigParser  = require('./configparser/ConfigParser');
+var __ = require('underscore');
 
 // Legacy logging
 events.on('log', console.log);
@@ -23,34 +24,34 @@ var wwwDir = '/Users/kamrik/src/coreproj/app/www';
 var nodeModulesDir = '/Users/kamrik/src/coreproj/node_modules';
 var platformTemplateDir = path.join(nodeModulesDir, 'cordova-ios');
 
-// Nuke the old dir entirely
-shell.rm('-rf', projDir);
-
 
 var cfg = new ConfigParser(configXml);
 
-// var prj = new AndroidProject();
-var prj = new IosProject();
-// Run `create` script from the platform template
-prj.init({
-    template: platformTemplateDir,
-    rootDir: projDir,
+// Declarative info about the project
+// this one should be discussed and kinda standardized
+var prjInfo = {
+    paths: {
+        www: wwwDir,
+        root: projDir,
+        template: platformTemplateDir,
+        plugins: [nodeModulesDir],
+    },
     cfg: cfg,
-});
+};
 
-// Add all plugins from node_modules dir
-prj.addPluginsFrom(nodeModulesDir);
+// Nuke the old dir entirely
+// shell.rm('-rf', projDir);
 
-prj.updateConfig();
+var proj = new IosProject();
 
-// Copy www dir
-prj.copyWww(wwwDir);
+// Experimenting with ways to mind methods to objects
+__.bindAll(proj, 'build', 'run');
 
-// save is currently a noop, but may be needed later, and/or might be implied by
-// build or run.
-prj.save();
+proj.create(prjInfo)
+    .then(proj.build)  // assumes build is well bound to proj
+    .done();
 
-// Build / run
-prj.build();
-
+// proj.open(projDir)
+//     .then(proj.run)
+//     .done();
 

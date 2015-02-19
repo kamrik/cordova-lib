@@ -31,12 +31,12 @@ var common = require('./plugman/platforms/common');
 
 exports.PlatformProject = PlatformProject;
 function PlatformProject() {
-    // Intentionally left blank
+    // Should probably be empty
 }
 
 
 PlatformProject.prototype.open = open;
-function open(root, opts) {
+function open(root) {
     var self = checkThis(this);
     var rootDir = root || self.root;
     self.root = rootDir;
@@ -51,18 +51,18 @@ function open(root, opts) {
     self.jsModuleObjects = [];
 
     self.installedPlugins = [];  // TODO: load this from persisted info, if any.
+    return Q();
 }
 
 PlatformProject.prototype.init = init;
 function init(opts) {
     var self = checkThis(this);
 
-    var platformTemplateDir = opts.template;
-    var rootDir = opts.rootDir;
-    var cfg = self.cfg =  opts.cfg;
+    var platformTemplateDir = opts.paths.template;
+    var cfg = self.cfg = opts.cfg;
 
 
-    self.root = rootDir;
+    self.root = opts.paths.root;
     opts = opts || {};
     var copts = { stdio: 'inherit' };
 
@@ -83,30 +83,42 @@ function init(opts) {
     }
 
     // Sync version, use superspawn for Async.
-    shell.exec([bin].concat(args).join(' '));
-    // return superspawn.spawn(bin, args, copts);
+    // shell.exec([bin].concat(args).join(' '));
 
-    self.open();
+    // Async version
+    return Q().then(function() {
+        return superspawn.spawn(bin, args, copts);
+    }).then(function() {
+        return self.open();
+    }).then(function() {
+        // TMP: Copy the default config.xml
+        // It should just sit at parser.config_xml() from the beginning
+        // Either savepoints or smart enough merging should take care of it all
+        var defaultRuntimeConfigFile = path.join(self.root, 'cordova', 'defaults.xml');
+        shell.cp('-f', defaultRuntimeConfigFile, self.parser.config_xml());
 
-    // TMP: Copy the default config.xml
-    // It should just sit at parser.config_xml() from the beginning
-    // Either savepoints or smart enough merging should take care of it all
-    var defaultRuntimeConfigFile = path.join(self.root, 'cordova', 'defaults.xml');
-    shell.cp('-f', defaultRuntimeConfigFile, self.parser.config_xml());
-
-    // TMP: Create plutform_www, should either exist in platform template
-    // or however it should be done with browserify.
-    var platform_www = path.join(self.root, 'platform_www');
-    shell.mkdir('-p', platform_www);
-    shell.cp('-f', path.join(self.wwwDir, 'cordova.js'), path.join(platform_www, 'cordova.js'));
+        // TMP: Create plutform_www, should either exist in platform template
+        // or however it should be done with browserify.
+        var platform_www = path.join(self.root, 'platform_www');
+        shell.mkdir('-p', platform_www);
+        shell.cp('-f', path.join(self.wwwDir, 'cordova.js'), path.join(platform_www, 'cordova.js'));
+    });
 }
 
 
+// Convenience variant of addPlugins that takes a list of dirs to load all plugins from
 PlatformProject.prototype.addPluginsFrom = addPluginsFrom;
 function addPluginsFrom(pluginDirs, opts) {
     var self = checkThis(this);
     opts = opts || {};
     var plugins = self.loadPlugins(pluginDirs, opts);
+    return self.addPlugins(plugins, opts);
+}
+
+PlatformProject.prototype.addPlugins = addPlugins;
+function addPlugins(plugins, opts) {
+    var self = checkThis(this);
+    opts = opts || {};
 
     // Install plugins into this platform project
     // NEXT2: check some constraints (dependencies, compatibility to target platfor(s))
@@ -174,11 +186,11 @@ function addPluginsFrom(pluginDirs, opts) {
         var jsModules = p.getJsModules(self.platform);
         jsModules.forEach(function(jsModule) {
             // addJsModule(jsModule)
-            self.copyJsModule(jsModule, p);
+            self._copyJsModule(jsModule, p);
         });
     });
 
-    self.savePluginsList();  // this one should also go into plugins_www
+    self._savePluginsList();  // this one should also go into plugins_www
 
     // ## Do config magic for plugins
     // config-changes.PlatformMunger does a lot of things that are too smart
@@ -207,6 +219,8 @@ function addPluginsFrom(pluginDirs, opts) {
     // NEXT2: display plugin info (maybe not, might be better done by user tool)
     // NEXT1: hooks after_plugin_install
 
+    return Q();
+
 }
 
 PlatformProject.prototype.updateConfig = updateConfig;
@@ -220,17 +234,18 @@ function updateConfig() {
 
     // Update all the project files
     self.parser.update_from_config(cfg);
-
+    return Q();
 }
 
 PlatformProject.prototype.copyWww = copyWww;
-function copyWww(wwwSrc, opts) {
+function copyWww(wwwSrc) {
     var self = checkThis(this);
     //  - Copy / update web files (including from plugins? or cache the plugins part of this somewhere)
     //    parser.update_www(); // nukes www, must be changed or called before anything else that writes to www. use plugins_www
     shell.cp('-rf', path.join(wwwSrc, '*'), self.wwwDir);
     // Copy over stock platform www assets (cordova.js)
     shell.cp('-rf', path.join(self.root, 'platform_www', '*'), self.wwwDir);
+    return Q();
 }
 
 PlatformProject.prototype.save = save;
@@ -243,19 +258,40 @@ PlatformProject.prototype.build = build;
 function build(opts) {
     var self = checkThis(this);
     var bin = path.join(self.root, 'cordova', 'build');
-    // var args = [];
+    var args = [];
 
-    // Sync version, use superspawn for Async.
-    // shell.exec([bin].concat(args).join(' '));
-    shell.exec(bin);
+    var copts = { stdio: 'inherit' };
+    return superspawn.spawn(bin, args, copts);
+
 }
 
 PlatformProject.prototype.run = run;
 function run(opts) {
     var self = checkThis(this);
     var bin = path.join(self.root, 'cordova', 'run');
-    shell.exec(bin);
+    // shell.exec(bin);
+    // return Q();
+    var args = [];
+    var copts = { stdio: 'inherit' };
+    return superspawn.spawn(bin, args, copts);
 }
+
+// create does everything needed before build/run
+PlatformProject.prototype.create = create;
+function create(prjInfo) {
+    var self = checkThis(this);
+
+    return Q().then(function(){
+        return self.init(prjInfo);
+    }).then(function(){
+        return self.addPluginsFrom(prjInfo.paths.plugins);
+    }).then(function(){
+        return self.updateConfig();
+    }).then(function(){
+        return self.copyWww(prjInfo.paths.www);
+    });
+}
+
 
 /*
 PlatformProject.prototype.funcName = funcName;
@@ -265,11 +301,8 @@ function funcName(plugins, opts) {
 */
 
 
-
-
-
-// ################# Helpers
-
+// ################# Public convenience functions
+// Should loadPlugins be a method of the PlatformProject? Maybe move it into PluginInfoProvider.
 PlatformProject.prototype.loadPlugins = loadPlugins;
 function loadPlugins(pluginDirs, opts) {
     var self = checkThis(this);
@@ -302,9 +335,12 @@ function loadPlugins(pluginDirs, opts) {
     return plugins;
 }
 
+
+// ###### Kinda private functions
+
 // copied from plugman/prepare.js - old way, not browserify, needs refactoring via self.fs
-PlatformProject.prototype.copyJsModule = copyJsModule;
-function copyJsModule(module, pluginInfo) {
+PlatformProject.prototype._copyJsModule = _copyJsModule;
+function _copyJsModule(module, pluginInfo) {
     var self = checkThis(this);
     var platformPluginsDir = path.join(self.wwwDir, 'plugins');
     // Copy the plugin's files into the www directory.
@@ -352,8 +388,8 @@ function copyJsModule(module, pluginInfo) {
     self.jsModuleObjects.push(obj);
 }
 
-PlatformProject.prototype.savePluginsList = savePluginsList;
-function savePluginsList() {
+PlatformProject.prototype._savePluginsList = _savePluginsList;
+function _savePluginsList() {
     var self = checkThis(this);
     // Write out moduleObjects as JSON wrapped in a cordova module to cordova_plugins.js
     var final_contents = "cordova.define('cordova/plugin_list', function(require, exports, module) {\n";

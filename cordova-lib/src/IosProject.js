@@ -10,7 +10,7 @@ function IosProject() {
 
 
 /*
-AndroidProject.prototype.funcName = funcName;
+IosProject.prototype.funcName = funcName;
 function funcName(plugins, opts) {
 
 }
