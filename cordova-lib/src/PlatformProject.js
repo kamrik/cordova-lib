@@ -276,6 +276,15 @@ function run(opts) {
     return superspawn.spawn(bin, args, copts);
 }
 
+PlatformProject.prototype.emulate = emulate;
+function emulate(opts) {
+    var self = checkThis(this);
+    var bin = path.join(self.root, 'cordova', 'emulate');
+    var args = [];
+    var copts = { stdio: 'inherit' };
+    return superspawn.spawn(bin, args, copts);
+}
+
 // create does everything needed before build/run
 PlatformProject.prototype.create = create;
 function create(prjInfo) {

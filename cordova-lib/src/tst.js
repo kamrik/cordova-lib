@@ -28,7 +28,7 @@ var platformTemplateDir = path.join(nodeModulesDir, 'cordova-ios');
 var cfg = new ConfigParser(configXml);
 
 // Declarative info about the project
-// this one should be discussed and kinda standardized
+// this one should be discussed and standardized
 var prjInfo = {
     paths: {
         www: wwwDir,
