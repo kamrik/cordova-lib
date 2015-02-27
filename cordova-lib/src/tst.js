@@ -40,7 +40,7 @@ var prjInfo = {
 };
 
 // Nuke the old dir entirely
-// shell.rm('-rf', projDir);
+shell.rm('-rf', projDir);
 
 var proj = new IosProject();
 

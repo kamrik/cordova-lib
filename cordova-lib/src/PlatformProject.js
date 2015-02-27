@@ -3,6 +3,31 @@
 
 /* jshint unused:false, quotmark:false, sub:true */
 
+
+/*
+
+Intended interface:
+A single class PlatformProject to be extended (or mixed into) by classes like AndroidProject
+Primitive methods of the class:
+
+All (most?) methods (but not the constructor) return promises.
+
+open(root)  // open an existing project from the file system at given location
+init(projInfo)   // init a new project given a bunch of input params, mosta imporatntly root dir
+addPlugins(plugins)  // plugins = Array of PluginInfo objects
+updateConfig(cfg?)   // update project config with things from ConfitParser
+copyWww()
+build() / run() / emulate()  // Proxies to equivalent scripts from the platform templates
+wwwDir  // location for the www dir relative to project root if user wants to copy www himself
+
+## Convenience functions (just ideas of what can be useful but not too magical)
+addPluginsFrom(pluginDirs)  // Add all plugins found in any of the give dirs (using searchpath logic)
+create(prjInfo) = init + addPlugins + updateConfig + copyWww
+?updateAndRun() = copyWww + build  + run
+
+*/
+
+
 var Q = require('q');
 var path = require('path');
 var fs = require('fs');
@@ -262,7 +287,6 @@ function build(opts) {
 
     var copts = { stdio: 'inherit' };
     return superspawn.spawn(bin, args, copts);
-
 }
 
 PlatformProject.prototype.run = run;
@@ -279,8 +303,8 @@ function run(opts) {
 PlatformProject.prototype.emulate = emulate;
 function emulate(opts) {
     var self = checkThis(this);
-    var bin = path.join(self.root, 'cordova', 'emulate');
-    var args = [];
+    var bin = path.join(self.root, 'cordova', 'run');
+    var args = ['--emulte'];
     var copts = { stdio: 'inherit' };
     return superspawn.spawn(bin, args, copts);
 }
