@@ -48,7 +48,9 @@ var proj = new IosProject();
 __.bindAll(proj, 'build', 'run');
 
 proj.create(prjInfo)
-    .then(proj.build)  // assumes build is well bound to proj
+    .then(function() {
+        return proj.build(prjInfo);
+    })
     .done();
 
 // proj.open(projDir)
