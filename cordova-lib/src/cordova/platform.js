@@ -17,7 +17,6 @@
     under the License.
 */
 
-var url = require('url');
 var config            = require('./config'),
     cordova           = require('./cordova'),
     cordova_util      = require('./util'),
@@ -103,7 +102,7 @@ function addHelper(cmd, hooksRunner, projectRoot, targets, opts) {
                 }
                 if (version) {
                     var maybeDir = cordova_util.fixRelativePath(version);
-                    if (isDirectory(maybeDir)) {
+                    if (cordova_util.isDirectory(maybeDir)) {
                         return getPlatformDetailsFromDir(maybeDir, platform);
                     }
                 }
@@ -152,6 +151,12 @@ function addHelper(cmd, hooksRunner, projectRoot, targets, opts) {
                     return superspawn.spawn(bin, args, copts);
                 }).then(function() {
                     copy_cordova_js(projectRoot, platform);
+                }).then(function () {
+                    // Call prepare for the current platform.
+                    var prepOpts = {
+                        platforms :[platform]
+                    };
+                    return require('./cordova').raw.prepare(prepOpts);
                 }).then(function() {
                     if (cmd == 'add') {
                         return installPluginsForNewPlatform(platform, projectRoot, cfg, opts);
@@ -164,28 +169,13 @@ function addHelper(cmd, hooksRunner, projectRoot, targets, opts) {
                         cfg.removeEngine(platform);
                         cfg.addEngine(platform, version);
                         cfg.write();
-                    }                    
+                    }
                 });
             });
         });
     }).then(function() {
         return hooksRunner.fire('after_platform_' + cmd, opts);
-    }).then(function() {
-        return require('./cordova').raw.prepare(platform);
     });
-}
-
-function isDirectory(dir) {
-    try {
-	return fs.lstatSync(dir).isDirectory();
-    } catch(e) {
-	return false;
-    }
-}
-
-function isUrl(value) {
-    var u = value && url.parse(value);
-    return !!(u && u.protocol && u.protocol.length > 1); // Account for windows c:/ paths
 }
 
 // Downloads via npm or via git clone (tries both)
@@ -193,7 +183,7 @@ function isUrl(value) {
 function downloadPlatform(projectRoot, platform, version, opts) {
     var target = version ? (platform + '@' + version) : platform;
     return Q().then(function() {
-        if (isUrl(version)) {
+        if (cordova_util.isUrl(version)) {
             events.emit('log', 'git cloning: ' + version);
             return lazy_load.git_clone(version);
         }
@@ -254,7 +244,7 @@ function getVersionFromConfigFile(platform, cfg) {
 
     // Get appropriate version from config.xml
     var engine = _.find(cfg.getEngines(), function(eng){
-	return eng.id.toLowerCase() === platform.toLowerCase();
+	return eng.name.toLowerCase() === platform.toLowerCase();
     });
 
     return engine && engine.version;
@@ -276,11 +266,11 @@ function remove(hooksRunner, projectRoot, targets, opts) {
         var autosave =  config_json.auto_save_platforms || false;
 	if(opts.save || autosave){
 	    targets.forEach(function(target) {
-		var platformId = target.split('@')[0];
+		var platformName = target.split('@')[0];
 		var xml = cordova_util.projectConfig(projectRoot);
 		var cfg = new ConfigParser(xml);
 		events.emit('log', 'Removing ' + target + ' from config.xml file ...');
-		cfg.removeEngine(platformId);
+		cfg.removeEngine(platformName);
 		cfg.write();
 	    });
 	}
