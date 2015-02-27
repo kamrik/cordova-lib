@@ -257,11 +257,15 @@ function save() {
 PlatformProject.prototype.build = build;
 function build(opts) {
     var self = checkThis(this);
-    var bin = path.join(self.root, 'cordova', 'build');
-    var args = [];
 
-    var copts = { stdio: 'inherit' };
-    return superspawn.spawn(bin, args, copts);
+    return self.copyWww(opts.paths.www)
+    .then(function() {
+        var bin = path.join(self.root, 'cordova', 'build');
+        var args = [];
+
+        var copts = { stdio: 'inherit' };
+        return superspawn.spawn(bin, args, copts);
+    });
 
 }
 
@@ -296,8 +300,6 @@ function create(prjInfo) {
         return self.addPluginsFrom(prjInfo.paths.plugins);
     }).then(function(){
         return self.updateConfig();
-    }).then(function(){
-        return self.copyWww(prjInfo.paths.www);
     });
 }
 
