@@ -23,16 +23,19 @@ exports = module.exports = {
         this.cordova.binname = name;
     },
     get binname() {
-       return this.cordova.binname;
+        return this.cordova.binname;
     },
     plugman: require('./src/plugman/plugman'),
     cordova: require('./src/cordova/cordova'),
     events: require('./src/events'),
     configparser: require('./src/configparser/ConfigParser.js'),
     cordova_platforms: require('./src/cordova/platforms'),
-    ////  MAIN CORDOVA TOOLS API
+    //  MAIN CORDOVA TOOLS API
     PluginInfo: require('./src/PluginInfo'),
-    CordovaError: require('./src/CordovaError')
+    CordovaError: require('./src/CordovaError'),
+    AndroidProject: require('./src/AndroidProject'),
+    IosProject: require('./src/IosProject'),
+    ConfigParser: require('./src/configparser/ConfigParser')
 }
 
 
