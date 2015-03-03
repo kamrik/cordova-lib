@@ -36,21 +36,20 @@ var unorm = require('unorm');
 var shell = require('shelljs');
 var et = require('elementtree');
 var __ = require('underscore');
-var _prepare = require('./cordova/prepare');
-var mergeXml = _prepare._mergeXml;
+var mergeXml = require('../cordova/prepare')._mergeXml;
 
 
-var superspawn = require('./cordova/superspawn');
-var ConfigParser  = require('./configparser/ConfigParser');
-var PluginInfoProvider = require('./PluginInfoProvider');
-var ConfigKeeper = require('./plugman/util/ConfigKeeper');
-var config_changes  = require('./plugman/util/config-changes');
-var mungeutil = require('./plugman/util/munge-util');
+var superspawn = require('../cordova/superspawn');
+var ConfigParser  = require('../configparser/ConfigParser');
+var PluginInfoProvider = require('../PluginInfoProvider');
+var ConfigKeeper = require('../plugman/util/ConfigKeeper');
+var config_changes  = require('../plugman/util/config-changes');
+var mungeutil = require('../plugman/util/munge-util');
 
 
 // TODO: don't use events, use the event dispatcher inside the project object
-var events = require('./events');
-var common = require('./plugman/platforms/common');
+var events = require('../events');
+var common = require('../plugman/platforms/common');
 
 
 
@@ -68,9 +67,9 @@ function open(root) {
 
     // TMP: the parser + handler should be a bunch of functions defined as methods
     // here and partially overridden in AndroidProject.
-    var ParserConstructor = require('./cordova/metadata/' + self.platform + '_parser');
+    var ParserConstructor = require('../cordova/metadata/' + self.platform + '_parser');
     self.parser = new ParserConstructor(self.root);
-    self.handler = require('./plugman/platforms/' + self.platform);
+    self.handler = require('../plugman/platforms/' + self.platform);
     self.wwwDir = self.handler.www_dir(self.root);
 
     self.jsModuleObjects = [];

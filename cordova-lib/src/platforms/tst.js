@@ -6,8 +6,8 @@ var AndroidProject = require('./AndroidProject');
 var IosProject = require('./IosProject');
 var shell = require('shelljs');
 var path = require('path');
-var events = require('./events');
-var ConfigParser  = require('./configparser/ConfigParser');
+var events = require('../events');
+var ConfigParser  = require('../configparser/ConfigParser');
 var __ = require('underscore');
 
 // Legacy logging
