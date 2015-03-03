@@ -17,7 +17,7 @@
     under the License.
 */
 
-var platforms = require('./platformsConfig.json');
+var platforms = require('../platforms/platformsConfig.json');
 
 var addModuleProperty = require('./util').addModuleProperty;
 Object.keys(platforms).forEach(function(key) {
