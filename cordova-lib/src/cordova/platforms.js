@@ -19,12 +19,44 @@
 
 var platforms = require('./platformsConfig.json');
 
-var addModuleProperty = require('./util').addModuleProperty;
-Object.keys(platforms).forEach(function(key) {
-    var obj = platforms[key];
-    if (obj.parser) {
-        addModuleProperty(module, 'parser', obj.parser, false, obj);
+// Avoid loading the same platform projects more than once (identified by path)
+var cachedProjects = {};
+
+
+var PARSER_PUBLIC_METHODS = [
+    'config_xml',
+    'cordovajs_path',
+    'update_from_config',
+    'update_overrides',
+    'update_project',
+    'update_www',
+    'www_dir',
+];
+
+
+function PlatformProjectAdapter(platform, platformRootDir) {
+    var self = this;
+    self.root = platformRootDir;
+    var ParserConstructor = require(platforms[platform].parser);
+    self.parser = new ParserConstructor(platformRootDir);
+
+    // Expos all public methods from the parser, properly bound.
+    PARSER_PUBLIC_METHODS.forEach(function(method) {
+        self[method] = self.parser[method].bind(self.parser);
+    });
+}
+
+function getPlatformProject(platform, platformRootDir) {
+    if (cachedProjects[platformRootDir]) {
+        return cachedProjects[platformRootDir];
+    } else if (platforms[platform]) {
+        var adapter = new PlatformProjectAdapter(platform, platformRootDir);
+        cachedProjects[platformRootDir] = adapter;
+        return adapter;
+    } else {
+        throw new Error('Unknown platform ' + platform);
     }
-});
+}
 
 module.exports = platforms;
+module.exports.getPlatformProject = getPlatformProject;

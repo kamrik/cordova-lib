@@ -587,7 +587,7 @@ function installPluginsForNewPlatform(platform, projectRoot, cfg, opts) {
 // The www dir is nuked on each prepare so we keep cordova.js in platform_www
 function copy_cordova_js(projectRoot, platform) {
     var platformPath = path.join(projectRoot, 'platforms', platform);
-    var parser = new platforms[platform].parser(platformPath);
+    var parser = platforms.getPlatformProject(platform, platformPath);
     var platform_www = path.join(platformPath, 'platform_www');
     shell.mkdir('-p', platform_www);
     shell.cp('-f', path.join(parser.www_dir(), 'cordova.js'), path.join(platform_www, 'cordova.js'));
