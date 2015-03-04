@@ -55,22 +55,34 @@ var common = require('../plugman/platforms/common');
 
 exports.PlatformProject = PlatformProject;
 function PlatformProject() {
-    // Should probably be empty
+    var self = checkThis(this);
+    // Some defaults
+    self.wwwDir = 'www';
+    self.configXml = 'config.xml';
+
+}
+
+PlatformProject.prototype.www_dir = www_dir;
+function www_dir() {
+    checkThis(this);
+    return path.join(this.root, this.wwwDir);
+}
+
+PlatformProject.prototype.config_xml = config_xml;
+function config_xml() {
+    checkThis(this);
+    return path.join(this.root, this.configXml);
 }
 
 
 PlatformProject.prototype.open = open;
-function open(root) {
+function open(rootDir) {
     var self = checkThis(this);
-    var rootDir = root || self.root;
+    rootDir = rootDir || self.root;
     self.root = rootDir;
 
-    // TMP: the parser + handler should be a bunch of functions defined as methods
-    // here and partially overridden in AndroidProject.
-    var ParserConstructor = require('../cordova/metadata/' + self.platform + '_parser');
-    self.parser = new ParserConstructor(self.root);
     self.handler = require('../plugman/platforms/' + self.platform);
-    self.wwwDir = self.handler.www_dir(self.root);
+
 
     self.jsModuleObjects = [];
 
@@ -87,7 +99,6 @@ function init(opts) {
 
 
     self.root = opts.paths.root;
-    opts = opts || {};
     var copts = { stdio: 'inherit' };
 
     // TODO, make normal logging, be able to accept different loggers
@@ -119,13 +130,13 @@ function init(opts) {
         // It should just sit at parser.config_xml() from the beginning
         // Either savepoints or smart enough merging should take care of it all
         var defaultRuntimeConfigFile = path.join(self.root, 'cordova', 'defaults.xml');
-        shell.cp('-f', defaultRuntimeConfigFile, self.parser.config_xml());
+        shell.cp('-f', defaultRuntimeConfigFile, self.config_xml());
 
         // TMP: Create plutform_www, should either exist in platform template
         // or however it should be done with browserify.
         var platform_www = path.join(self.root, 'platform_www');
         shell.mkdir('-p', platform_www);
-        shell.cp('-f', path.join(self.wwwDir, 'cordova.js'), path.join(platform_www, 'cordova.js'));
+        shell.cp('-f', path.join(self.www_dir(), 'cordova.js'), path.join(platform_www, 'cordova.js'));
     });
 }
 
@@ -200,7 +211,7 @@ function addPlugins(plugins, opts) {
         // Need to either redo on each prepare, or put in a staging www dir
         // that will be later copied into the real www dir on each prepare / www update.
         assetFiles.forEach(function(item) {
-            common.asset.install(item, p.dir, self.wwwDir); // use plugins_wwww for this
+            common.asset.install(item, p.dir, self.www_dir()); // use plugins_wwww for this
         });
 
         // Save/update metadata in project
@@ -252,12 +263,12 @@ function updateConfig() {
     var self = checkThis(this);
     var cfg = self.cfg;
 
-    var platform_cfg = new ConfigParser(self.parser.config_xml());
+    var platform_cfg = new ConfigParser(self.config_xml());
     mergeXml(cfg.doc.getroot(), platform_cfg.doc.getroot(), self.platform, true);
     platform_cfg.write();
 
     // Update all the project files
-    self.parser.update_from_config(cfg);
+    self.update_from_config(cfg);
     return Q();
 }
 
@@ -266,9 +277,9 @@ function copyWww(wwwSrc) {
     var self = checkThis(this);
     //  - Copy / update web files (including from plugins? or cache the plugins part of this somewhere)
     //    parser.update_www(); // nukes www, must be changed or called before anything else that writes to www. use plugins_www
-    shell.cp('-rf', path.join(wwwSrc, '*'), self.wwwDir);
+    shell.cp('-rf', path.join(wwwSrc, '*'), self.www_dir());
     // Copy over stock platform www assets (cordova.js)
-    shell.cp('-rf', path.join(self.root, 'platform_www', '*'), self.wwwDir);
+    shell.cp('-rf', path.join(self.root, 'platform_www', '*'), self.www_dir());
     return Q();
 }
 
@@ -374,7 +385,7 @@ function loadPlugins(pluginDirs, opts) {
 PlatformProject.prototype._copyJsModule = _copyJsModule;
 function _copyJsModule(module, pluginInfo) {
     var self = checkThis(this);
-    var platformPluginsDir = path.join(self.wwwDir, 'plugins');
+    var platformPluginsDir = path.join(self.www_dir(), 'plugins');
     // Copy the plugin's files into the www directory.
     // NB: We can't always use path.* functions here, because they will use platform slashes.
     // But the path in the plugin.xml and in the cordova_plugins.js should be always forward slashes.
@@ -437,8 +448,40 @@ function _savePluginsList() {
     final_contents += '});'; // Close cordova.define.
 
     events.emit('verbose', 'Writing out cordova_plugins.js...');
-    fs.writeFileSync(path.join(self.wwwDir, 'cordova_plugins.js'), final_contents, 'utf-8');
+    fs.writeFileSync(path.join(self.www_dir(), 'cordova_plugins.js'), final_contents, 'utf-8');
 }
+
+
+
+// Compatibility with platform parsers
+PlatformProject.prototype.update_www = update_www;
+function update_www() {
+    var self = checkThis(this);
+    var platform_www = path.join(self.root, 'platform_www');
+
+    // Clear the www dir
+    shell.rm('-rf', this.www_dir());
+    shell.mkdir(this.www_dir());
+    // Copy over all app www assets
+    shell.cp('-rf', path.join(self.appWww, '*'), this.www_dir());
+    // Copy over stock platform www assets (cordova.js)
+    shell.cp('-rf', path.join(platform_www, '*'), this.www_dir());
+}
+
+
+// update the overrides folder into the www folder
+PlatformProject.prototype.update_overrides = update_overrides;
+function update_overrides() {
+    var self = checkThis(this);
+    var util = require('../cordova/util');
+    var projectRoot = util.isCordova(self.root);
+    var merges_path = path.join(util.appDir(projectRoot), 'merges', self.platform);
+    if (fs.existsSync(merges_path)) {
+        var overrides = path.join(merges_path, '*');
+        shell.cp('-rf', overrides, this.www_dir());
+    }
+}
+
 
 function checkThis(t) {
     if (!(t instanceof PlatformProject)) {
