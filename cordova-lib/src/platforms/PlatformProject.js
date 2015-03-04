@@ -37,6 +37,7 @@ var shell = require('shelljs');
 var et = require('elementtree');
 var __ = require('underscore');
 var mergeXml = require('../cordova/prepare')._mergeXml;
+var util = require('../cordova/util');
 
 
 var superspawn = require('../cordova/superspawn');
@@ -482,6 +483,15 @@ function update_overrides() {
     }
 }
 
+PlatformProject.prototype.update_project = update_project;
+function update_project(cfg) {
+    var self = checkThis(this);
+    return this.update_from_config(cfg)
+    .then(function() {
+        self.update_overrides();
+        util.deleteSvnFolders(self.www_dir());
+    });
+}
 
 function checkThis(t) {
     if (!(t instanceof PlatformProject)) {

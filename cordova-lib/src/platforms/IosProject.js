@@ -72,7 +72,7 @@ function update_from_config(cfg) {
 
     var orientation = config.getPreference('orientation', self.platform);
 
-    if (orientation && orientation != 'default')) {
+    if (orientation && orientation != 'default') {
         switch (orientation.toLowerCase()) {
             case 'portrait':
                 infoPlist['UIInterfaceOrientation'] = [ 'UIInterfaceOrientationPortrait' ];
@@ -260,13 +260,4 @@ function parseTargetDevicePreference(value) {
     }
     events.emit('warn', 'Unknown target-device preference value: "' + value + '".');
     return null;
-}
-
-function openProject(rootDir) {
-    var prj = new IosProject();
-    prj.open(rootDir);
-    var util = require('../cordova/util');
-    prj.appRoot = util.isCordova(prj.root);
-    prj.appWww = util.projectWww(prj.appRoot);
-    return prj;
 }

@@ -33,8 +33,8 @@ exports = module.exports = {
     //  MAIN CORDOVA TOOLS API
     PluginInfo: require('./src/PluginInfo'),
     CordovaError: require('./src/CordovaError'),
-    AndroidProject: require('./src/AndroidProject'),
-    IosProject: require('./src/IosProject'),
+    AndroidProject: require('./src/platforms/AndroidProject'),
+    IosProject: require('./src/platforms/IosProject'),
     ConfigParser: require('./src/configparser/ConfigParser')
 }
 

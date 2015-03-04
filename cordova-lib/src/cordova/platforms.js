@@ -17,14 +17,36 @@
     under the License.
 */
 
+var util = require('./util');
 var platforms = require('../platforms/platformsConfig.json');
 
-var addModuleProperty = require('./util').addModuleProperty;
-Object.keys(platforms).forEach(function(key) {
-    var obj = platforms[key];
-    if (obj.parser) {
-        addModuleProperty(module, 'parser', obj.parser, false, obj);
-    }
-});
+// Until all platforms move to the new style.
+var newStylePlatforms = {
+    'ios': '../platforms/IosProject',
+};
 
+var cachedProjects = {};
+
+function getPlatformProject(platform, platformRootDir) {
+    if (cachedProjects[platformRootDir]) {
+        return cachedProjects[platformRootDir];
+    } else if (newStylePlatforms[platform]) {
+        var PlatformConstructor = require(newStylePlatforms[platform]);
+        var prj = new PlatformConstructor();
+        prj.open(platformRootDir);
+        prj.appRoot = util.isCordova(platformRootDir);
+        prj.appWww = util.projectWww(prj.appRoot);
+        cachedProjects[platformRootDir] = prj;
+        return prj;
+    } else if (platforms[platform]) {
+        var ParserConstructor = require(platforms[platform].parser);
+        var parser = new ParserConstructor(platformRootDir);
+        cachedProjects[platformRootDir] = parser;
+        return parser;
+    } else {
+        throw new Error('Unknown platform ' + platform);
+    }
+}
+
+platforms.getPlatformProject = getPlatformProject;
 module.exports = platforms;
