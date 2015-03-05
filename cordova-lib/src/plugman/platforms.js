@@ -17,7 +17,7 @@
     under the License.
 */
 
-module.exports = {
+var platforms = module.exports = {
     'android': require('./platforms/android'),
     'amazon-fireos': require('./platforms/amazon-fireos'),
     'ios': require('./platforms/ios'),
@@ -30,3 +30,20 @@ module.exports = {
     'tizen': require('./platforms/tizen'),
     'browser': require('./platforms/browser')
 };
+
+// Add (un)installer getter for compatibility with unified platform handlers
+// Function signatures are:
+//   install(obj, plugin_dir, project_dir, plugin_id, options, project)
+// uninstall(obj,             project_dir, plugin_id, options, project)
+function getInstaller(type) {
+    return this[type].install;
+}
+
+function getUninstaller(type) {
+    return this[type].uninstall;
+}
+
+Object.keys(platforms).forEach(function(platform) {
+    platforms[platform].getInstaller = getInstaller;
+    platforms[platform].getUninstaller = getUninstaller;
+});
