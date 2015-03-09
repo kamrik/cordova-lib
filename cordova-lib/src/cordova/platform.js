@@ -35,7 +35,8 @@ var config            = require('./config'),
     semver            = require('semver'),
     unorm             = require('unorm'),
     shell             = require('shelljs'),
-    _                 = require('underscore');
+    _                 = require('underscore'),
+    platformMetadata  = require('./platform_metadata');
 
 // Expose the platform parsers on top of this command
 for (var p in platforms) {
@@ -75,7 +76,8 @@ function addHelper(cmd, hooksRunner, projectRoot, targets, opts) {
 
     // The "platforms" dir is safe to delete, it's almost equivalent to
     // cordova platform rm <list of all platforms>
-    shell.mkdir('-p', path.join(projectRoot, 'platforms'));
+    var platformsDir = path.join(projectRoot, 'platforms');
+    shell.mkdir('-p', platformsDir);
 
     return hooksRunner.fire('before_platform_' + cmd, opts)
     .then(function() {
@@ -162,6 +164,12 @@ function addHelper(cmd, hooksRunner, projectRoot, targets, opts) {
                         return installPluginsForNewPlatform(platform, projectRoot, cfg, opts);
                     }
                 }).then(function() {
+                    // Save platform@version into platforms.json. i.e: 'android@https://github.com/apache/cordova-android.git'
+                    // If no version was specified, save the edge version                    
+                    var versionToSave = version || platforms[platform].version;
+                    events.emit('verbose', 'saving ' + platform + '@' + versionToSave + ' into platforms.json');
+                    platformMetadata.save(projectRoot, platform, versionToSave);
+                }).then(function() {
                     if(opts.save || autosave){
                         // Save target into config.xml, overriding already existing settings
                         events.emit('log', '--save flag or autosave detected');
@@ -175,6 +183,24 @@ function addHelper(cmd, hooksRunner, projectRoot, targets, opts) {
         });
     }).then(function() {
         return hooksRunner.fire('after_platform_' + cmd, opts);
+    });
+}
+
+function save(hooksRunner, projectRoot, opts) {
+    var xml = cordova_util.projectConfig(projectRoot);
+    var cfg = new ConfigParser(xml);
+
+    // First, remove all platforms that are already in config.xml
+    cfg.getEngines().forEach(function(engine){
+        cfg.removeEngine(engine.name);
+    });
+
+    // Save installed platforms into config.xml
+    return platformMetadata.getPlatformVersions(projectRoot).then(function(platformVersions){
+        platformVersions.forEach(function(platVer){
+            cfg.addEngine(platVer.platform, platVer.version);
+        });
+        cfg.write();
     });
 }
 
@@ -274,8 +300,13 @@ function remove(hooksRunner, projectRoot, targets, opts) {
 		cfg.write();
 	    });
 	}
-    })
-    .then(function() {
+    }).then(function() {
+        // Remove targets from platforms.json
+        targets.forEach(function(target) {
+            events.emit('verbose', 'Removing ' + target + ' from platforms.json file ...');
+            platformMetadata.remove(projectRoot, target);
+        });
+    }).then(function() {
         return hooksRunner.fire('after_platform_rm', opts);
     });
 }
@@ -498,6 +529,8 @@ function platform(command, targets, opts) {
             return update(hooksRunner, projectRoot, targets, opts);
         case 'check':
             return check(hooksRunner, projectRoot);
+        case 'save':
+            return save(hooksRunner, projectRoot, opts);
         default:
             return list(hooksRunner, projectRoot);
     }
