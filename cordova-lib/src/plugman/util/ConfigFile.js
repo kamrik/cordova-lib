@@ -22,7 +22,7 @@ var et   = require('elementtree');
 var glob = require('glob');
 var plist = require('plist');
 
-var platforms = require('./../../cordova/platforms');
+var platforms = require('../../platforms/platforms');
 var plist_helpers = require('./../util/plist-helpers');
 var xml_helpers = require('../../util/xml-helpers');
 

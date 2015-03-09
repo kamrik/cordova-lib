@@ -19,7 +19,7 @@
 
 /* jshint unused:false, expr:true */
 
-var platform_modules   = require('../cordova/platforms'),
+var platform_modules   = require('../platforms/platforms'),
     path               = require('path'),
     through            = require('through2'),
     config_changes     = require('./util/config-changes'),

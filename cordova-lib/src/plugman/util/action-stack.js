@@ -19,7 +19,7 @@
 
 /* jshint quotmark:false */
 
-var platforms = require("../../cordova/platforms"),
+var platforms = require("../../platforms/platforms"),
     events = require('../../events'),
     Q = require('q');
 

@@ -24,7 +24,7 @@ var platforms = require('./platformsConfig.json');
 var addModuleProperty = require('../cordova/util').addModuleProperty;
 Object.keys(platforms).forEach(function(key) {
     var obj = platforms[key];
-    if (obj.parser) {
+    if (obj.parser_file) {
         addModuleProperty(module, 'parser', obj.parser_file, false, obj);
     }
 });

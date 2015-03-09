@@ -36,7 +36,7 @@ var fs   = require('fs'),
     path = require('path'),
     et   = require('elementtree'),
     semver = require('semver'),
-    platforms = require('./../../cordova/platforms'),
+    platforms = require('../../platforms/platforms'),
     events = require('../../events'),
     ConfigKeeper = require('./ConfigKeeper');
 

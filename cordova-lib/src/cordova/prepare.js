@@ -20,7 +20,7 @@
 var cordova_util      = require('./util'),
     ConfigParser      = require('../configparser/ConfigParser'),
     path              = require('path'),
-    platforms         = require('./platforms'),
+    platforms         = require('../platforms/platforms'),
     fs                = require('fs'),
     shell             = require('shelljs'),
     et                = require('elementtree'),
