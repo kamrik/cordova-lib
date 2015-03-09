@@ -19,9 +19,19 @@
 
 var platforms = require('./platformsConfig.json');
 
+// Remove this block soon. The parser property is no longer used in
+// cordova-lib but some downstream tools still use it.
+var addModuleProperty = require('../cordova/util').addModuleProperty;
+Object.keys(platforms).forEach(function(key) {
+    var obj = platforms[key];
+    if (obj.parser) {
+        addModuleProperty(module, 'parser', obj.parser_file, false, obj);
+    }
+});
+
+
 // Avoid loading the same platform projects more than once (identified by path)
 var cachedProjects = {};
-
 
 var PARSER_PUBLIC_METHODS = [
     'config_xml',
@@ -39,27 +49,16 @@ var HANDLER_PUBLIC_METHODS = [
     'purgeProjectFileCache',
 ];
 
-var handlers = {
-    'android': '../plugman/platforms/android',
-    'amazon-fireos': '../plugman/platforms/amazon-fireos',
-    'ios': '../plugman/platforms/ios',
-    'blackberry10': '../plugman/platforms/blackberry10',
-    'wp8': '../plugman/platforms/wp8',
-    'windows8' : '../plugman/platforms/windows',
-    'windows' : '../plugman/platforms/windows',
-    'firefoxos': '../plugman/platforms/firefoxos',
-    'ubuntu': '../plugman/platforms/ubuntu',
-    'tizen': '../plugman/platforms/tizen',
-    'browser': '../plugman/platforms/browser',
-};
 
-
+// A single class that exposes functionality from platform specific files from
+// both places cordova/metadata and plugman/platforms. Hopefully, to be soon
+// replaced by real unified platform specific classes.
 function PlatformProjectAdapter(platform, platformRootDir) {
     var self = this;
     self.root = platformRootDir;
-    var ParserConstructor = require(platforms[platform].parser);
+    var ParserConstructor = require(platforms[platform].parser_file);
     self.parser = new ParserConstructor(platformRootDir);
-    self.handler = require(handlers[platform]);
+    self.handler = require(platforms[platform].handler_file);
 
     // Expos all public methods from the parser and handler, properly bound.
     PARSER_PUBLIC_METHODS.forEach(function(method) {
@@ -81,6 +80,8 @@ function PlatformProjectAdapter(platform, platformRootDir) {
     };
 }
 
+// getPlatformProject() should be the only method of instantiating the
+// PlatformProject classes for now.
 function getPlatformProject(platform, platformRootDir) {
     if (cachedProjects[platformRootDir]) {
         return cachedProjects[platformRootDir];
