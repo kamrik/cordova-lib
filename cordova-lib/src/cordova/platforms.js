@@ -33,17 +33,52 @@ var PARSER_PUBLIC_METHODS = [
     'www_dir',
 ];
 
+var HANDLER_PUBLIC_METHODS = [
+    'package_name',
+    'parseProjectFile',
+    'purgeProjectFileCache',
+];
+
+var handlers = {
+    'android': '../plugman/platforms/android',
+    'amazon-fireos': '../plugman/platforms/amazon-fireos',
+    'ios': '../plugman/platforms/ios',
+    'blackberry10': '../plugman/platforms/blackberry10',
+    'wp8': '../plugman/platforms/wp8',
+    'windows8' : '../plugman/platforms/windows',
+    'windows' : '../plugman/platforms/windows',
+    'firefoxos': '../plugman/platforms/firefoxos',
+    'ubuntu': '../plugman/platforms/ubuntu',
+    'tizen': '../plugman/platforms/tizen',
+    'browser': '../plugman/platforms/browser',
+};
+
 
 function PlatformProjectAdapter(platform, platformRootDir) {
     var self = this;
     self.root = platformRootDir;
     var ParserConstructor = require(platforms[platform].parser);
     self.parser = new ParserConstructor(platformRootDir);
+    self.handler = require(handlers[platform]);
 
-    // Expos all public methods from the parser, properly bound.
+    // Expos all public methods from the parser and handler, properly bound.
     PARSER_PUBLIC_METHODS.forEach(function(method) {
         self[method] = self.parser[method].bind(self.parser);
     });
+
+    HANDLER_PUBLIC_METHODS.forEach(function(method) {
+        if (self.handler[method]) {
+            self[method] = self.handler[method].bind(self.handler);
+        }
+    });
+
+    self.getInstaller = function(type) {
+        return self.handler[type].install;
+    };
+
+    self.getUninstaller = function(type) {
+        return self.handler[type].uninstall;
+    };
 }
 
 function getPlatformProject(platform, platformRootDir) {

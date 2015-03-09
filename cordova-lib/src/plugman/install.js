@@ -28,7 +28,7 @@ var path = require('path'),
     PlatformJson = require('./util/PlatformJson'),
     CordovaError  = require('../CordovaError'),
     Q = require('q'),
-    platform_modules = require('./platforms'),
+    platform_modules = require('../cordova/platforms'),
     os = require('os'),
     underscore = require('underscore'),
     shell   = require('shelljs'),
@@ -527,7 +527,7 @@ function handleInstall(actions, pluginInfo, platform, project_dir, plugins_dir, 
 
     // @tests - important this event is checked spec/install.spec.js
     events.emit('verbose', 'Install start for "' + pluginInfo.id + '" on ' + platform + '.');
-    var handler = platform_modules[platform];
+    var handler = platform_modules.getPlatformProject(platform, project_dir);
     var frameworkFiles = pluginInfo.getFrameworks(platform); // Frameworks are needed later
     var pluginItems = pluginInfo.getFilesAndFrameworks(platform);
 

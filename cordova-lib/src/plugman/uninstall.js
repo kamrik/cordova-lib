@@ -29,7 +29,7 @@ var path = require('path'),
     underscore = require('underscore'),
     Q = require('q'),
     events = require('../events'),
-    platform_modules = require('./platforms'),
+    platform_modules = require('../cordova/platforms'),
     plugman = require('./plugman'),
     promiseutil = require('../util/promise-util'),
     HooksRunner = require('../hooks/HooksRunner'),
@@ -293,9 +293,8 @@ function runUninstallPlatform(actions, platform, project_dir, plugin_dir, plugin
 function handleUninstall(actions, platform, pluginInfo, project_dir, www_dir, plugins_dir, is_top_level, options) {
     var plugin_id = pluginInfo.id;
     var plugin_dir = pluginInfo.dir;
-    var platform_modules = require('./platforms');
-    var handler = platform_modules[platform];
-    www_dir = www_dir || handler.www_dir(project_dir);
+    var handler = platform_modules.getPlatformProject(platform, project_dir);
+    www_dir = www_dir || handler.www_dir();
     events.emit('log', 'Uninstalling ' + plugin_id + ' from ' + platform);
 
     var pluginItems = pluginInfo.getFilesAndFrameworks(platform);
