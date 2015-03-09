@@ -16,7 +16,7 @@
     specific language governing permissions and limitations
     under the License.
 */
-var platforms = require('../src/plugman/platforms');
+var platforms = require('../src/platforms/platforms');
 var pluginTags = ['source-file', 'header-file', 'lib-file', 'resource-file', 'framework'];
 
 function getTest(platformId, pluginTag) {
