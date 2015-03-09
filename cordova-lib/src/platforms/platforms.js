@@ -56,6 +56,7 @@ var HANDLER_PUBLIC_METHODS = [
 function PlatformProjectAdapter(platform, platformRootDir) {
     var self = this;
     self.root = platformRootDir;
+    self.platform = platform;
     var ParserConstructor = require(platforms[platform].parser_file);
     self.parser = new ParserConstructor(platformRootDir);
     self.handler = require(platforms[platform].handler_file);
@@ -83,7 +84,8 @@ function PlatformProjectAdapter(platform, platformRootDir) {
 // getPlatformProject() should be the only method of instantiating the
 // PlatformProject classes for now.
 function getPlatformProject(platform, platformRootDir) {
-    if (cachedProjects[platformRootDir]) {
+    var cached = cachedProjects[platformRootDir];
+    if (cached && cached.platform == platform) {
         return cachedProjects[platformRootDir];
     } else if (platforms[platform]) {
         var adapter = new PlatformProjectAdapter(platform, platformRootDir);
