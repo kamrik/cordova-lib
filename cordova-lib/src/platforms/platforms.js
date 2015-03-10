@@ -63,7 +63,9 @@ function PlatformProjectAdapter(platform, platformRootDir) {
 
     // Expos all public methods from the parser and handler, properly bound.
     PARSER_PUBLIC_METHODS.forEach(function(method) {
-        self[method] = self.parser[method].bind(self.parser);
+        if (self.parser[method]) {
+            self[method] = self.parser[method].bind(self.parser);
+        }
     });
 
     HANDLER_PUBLIC_METHODS.forEach(function(method) {
