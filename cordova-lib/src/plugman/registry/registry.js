@@ -19,7 +19,8 @@
 
 /* jshint laxcomma:true */
 
-var npm = require('npm'),
+var semver = require('semver'),
+    npm = require('npm'),
     path = require('path'),
     url = require('url'),
     fs = require('fs'),
@@ -27,6 +28,7 @@ var npm = require('npm'),
     rc = require('rc'),
     Q = require('q'),
     request = require('request'),
+    pluginMapper = require('cordova-registry-mapper').oldToNew,
     home = process.env.HOME || process.env.HOMEPATH || process.env.USERPROFILE,
     events = require('../../events'),
     unpack = require('../../util/unpack'),
@@ -35,6 +37,13 @@ var npm = require('npm'),
     plugmanCacheDir = path.resolve(plugmanConfigDir, 'cache'),
     oneDay = 3600*24;
 
+if (semver.compare(npm.version, '1.3.4') > 0) {
+    throw new Error('Unsupported npm version (' + npm.version + '). ' +
+       'Please downgrade to 1.3.4:\n' +
+       '\t(cd ' + path.dirname(path.dirname(path.dirname(__dirname))) +
+       ' && rm -rf ' + path.join('node_modules', 'npm') +
+       ' && npm install npm@1.3.4)');
+}
 
 module.exports = {
     settings: null,
@@ -90,7 +99,7 @@ module.exports = {
             if(fs.existsSync(path.join(dir,'package.json'))) {
                 events.emit('verbose', 'temporarily moving existing package.json so we can create one to publish to the cordova plugins registry');
                 if(fs.existsSync(path.join(dir,'package.json1'))) {
-                    //package.json1 already exists, maybe due to an past failed attempt to publish
+                    //package.json1 already exists, maybe due to a failed past attempt to publish
                     //we will assume that the rename has already happened.
                     events.emit('verbose', 'package.json1 already exists. Will use');
                 } else {
@@ -166,26 +175,22 @@ module.exports = {
      */
     fetch: function(plugin, client) {
         plugin = plugin.shift();
-        return initSettings()
-        .then(function (settings) {
-            return Q.nfcall(npm.load)
-            // configure npm here instead of passing parameters to npm.load due to CB-7670
-            .then(function () {
-                for (var prop in settings){
-                    npm.config.set(prop, settings[prop]);
-                }
-            });
+        return Q.fcall(function() {
+            //check to see if pluginID is reverse domain name style
+            if(isValidCprName(plugin)){
+                return Q();
+            } else {
+                //make promise fail so it will fetch from npm
+                events.emit('verbose', 'Skipping CPR');
+                return Q.reject();
+            }
         })
         .then(function() {
-            return Q.ninvoke(npm.commands, 'cache', ['add', plugin]);
+            return fetchPlugin(plugin, client, false);
         })
-        .then(function(info) {
-            var cl = (client === 'plugman' ? 'plugman' : 'cordova-cli');
-            bumpCounter(info, cl);
-            var pluginDir = path.resolve(npm.cache, info.name, info.version, 'package');
-            // Unpack the plugin that was added to the cache (CB-8154)
-            var package_tgz = path.resolve(npm.cache, info.name, info.version, 'package.tgz');
-            return unpack.unpackTgz(package_tgz, pluginDir);
+        .fail(function() {
+            module.exports.settings = null;
+            return fetchPlugin(plugin, client, true);
         });
     },
 
@@ -209,7 +214,6 @@ module.exports = {
             // Plugin info should be accessed as info[version]. If a version
             // specifier like >=x.y.z was used when calling npm view, info
             // can contain several versions, but we take the first one here.
-            console.log(info);
             var version = Object.keys(info)[0];
             return info[version];
         });
@@ -217,11 +221,22 @@ module.exports = {
 };
 
 /**
- * @method initSettings
+ * @param {Boolean} determines if we are using the npm registry
  * @return {Promise.<Object>} Promised settings.
  */
-function initSettings() {
+function initSettings(useNpmRegistry) {
     var settings = module.exports.settings;
+    var NPM_REG_URL = 'http://registry.npmjs.org';
+    var CPR_REG_URL = 'http://registry.cordova.io';
+    var registryURL;
+
+    //if useNpmRegistry is true, use npm registry
+    if(useNpmRegistry) {
+        registryURL = NPM_REG_URL;
+    } else {
+        registryURL = CPR_REG_URL;
+    }
+
     // check if settings already set
     if(settings !== null) return Q(settings);
 
@@ -236,14 +251,21 @@ function initSettings() {
     module.exports.settings =
     rc('plugman', {
         cache: plugmanCacheDir,
-        registry: 'http://registry.cordova.io',
+        registry: registryURL,
         logstream: fs.createWriteStream(path.resolve(plugmanConfigDir, 'plugman.log')),
         userconfig: path.resolve(plugmanConfigDir, 'config'),
         'cache-min': oneDay
     });
+
+    // if npm is true, use npm registry. 
+    // ~/.plugman/config overides the above config if it exists. 
+    // Need to reset the registry value in settings 
+    if(useNpmRegistry) {
+        settings.registry = NPM_REG_URL;
+    }
+
     return Q(settings);
 }
-
 
 // Send a message to the registry to update download counts.
 function bumpCounter(info, client) {
@@ -321,4 +343,79 @@ function makeRequest (method, where, what, cb_) {
     });
 
     return req;
+}
+
+/**
+* @param {Array} with one element - the plugin id or "id@version"
+* @param useNpmRegistry: {Boolean} - to use the npm registry 
+* @return {Promise.<string>} Promised path to fetched package.
+*/
+function fetchPlugin(plugin, client, useNpmRegistry) {
+    //set registry variable to use in log messages below
+    var registryName;
+    if(useNpmRegistry){
+        registryName = 'npm';
+    } else {
+        registryName = 'cordova plugins registry';
+    }
+    return initSettings(useNpmRegistry)
+    .then(function (settings) {
+        return Q.nfcall(npm.load)
+        // configure npm here instead of passing parameters to npm.load due to CB-7670
+        .then(function () {
+            for (var prop in settings){
+                npm.config.set(prop, settings[prop]);
+            }
+        });
+    })
+    .then(function() {
+        events.emit('log', 'Fetching plugin "' + plugin + '" via ' + registryName);
+        return Q.ninvoke(npm.commands, 'cache', ['add', plugin]);
+    })
+    .then(function(info) {
+        var cl = (client === 'plugman' ? 'plugman' : 'cordova-cli');
+        bumpCounter(info, cl);
+        var pluginDir = path.resolve(npm.cache, info.name, info.version, 'package');
+        // Unpack the plugin that was added to the cache (CB-8154)
+        var package_tgz = path.resolve(npm.cache, info.name, info.version, 'package.tgz');
+        return unpack.unpackTgz(package_tgz, pluginDir);
+    })
+    .fail(function(error) {
+        events.emit('log', 'Fetching from ' + registryName + ' failed');
+        return Q.reject(error);
+    });
+}
+
+/**
+ * @param {Array} with one element - the plugin id or "id@version"
+ * @return {Boolean} if plugin id is reverse domain name style.
+ */
+function isValidCprName(plugin) {
+    // Split @Version from the plugin id if it exists.
+    var splitVersion = plugin.split('@');
+
+    //Create regex that checks for at least two dots with any characters except @ to determine if it is reverse domain name style.
+    var matches = /([^@]*\.[^@]*\.[^@]*)/.exec(splitVersion[0]);
+
+    //If matches equals null, plugin is not reverse domain name style
+    if(matches === null) {
+        return false;
+    } else {
+        warnIfIdInMapper(splitVersion[0]);
+    }
+    return true;
+}
+
+/**
+ * @param plugin:{Array} - the plugin id or "id@version"
+ * @param matches:{Array} - the array containing the RDN style plugin id without @version
+ */
+function warnIfIdInMapper(plugin) {
+    //Reverse domain name style plugin ID
+    //Check if a mapping exists for the plugin id
+    //if it does, warn the users to use package-name
+    var packageName = pluginMapper[plugin];
+    if(packageName) {
+        events.emit('log', 'WARNING: ' + plugin + ' has been renamed to ' + packageName + '. You may not be getting the latest version! We suggest you `cordova plugin rm ' + plugin + '` and `cordova plugin add ' + packageName + '`.');
+    }
 }

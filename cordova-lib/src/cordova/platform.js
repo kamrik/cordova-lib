@@ -29,13 +29,14 @@ var config            = require('./config'),
     lazy_load         = require('./lazy_load'),
     CordovaError      = require('../CordovaError'),
     Q                 = require('q'),
-    platforms         = require('./platforms'),
+    platforms         = require('../platforms/platforms'),
     promiseutil       = require('../util/promise-util'),
     superspawn        = require('./superspawn'),
     semver            = require('semver'),
     unorm             = require('unorm'),
     shell             = require('shelljs'),
-    _                 = require('underscore');
+    _                 = require('underscore'),
+    platformMetadata  = require('./platform_metadata');
 
 // Expose the platform parsers on top of this command
 for (var p in platforms) {
@@ -75,7 +76,8 @@ function addHelper(cmd, hooksRunner, projectRoot, targets, opts) {
 
     // The "platforms" dir is safe to delete, it's almost equivalent to
     // cordova platform rm <list of all platforms>
-    shell.mkdir('-p', path.join(projectRoot, 'platforms'));
+    var platformsDir = path.join(projectRoot, 'platforms');
+    shell.mkdir('-p', platformsDir);
 
     return hooksRunner.fire('before_platform_' + cmd, opts)
     .then(function() {
@@ -162,6 +164,12 @@ function addHelper(cmd, hooksRunner, projectRoot, targets, opts) {
                         return installPluginsForNewPlatform(platform, projectRoot, cfg, opts);
                     }
                 }).then(function() {
+                    // Save platform@version into platforms.json. i.e: 'android@https://github.com/apache/cordova-android.git'
+                    // If no version was specified, save the edge version
+                    var versionToSave = version || platforms[platform].version;
+                    events.emit('verbose', 'saving ' + platform + '@' + versionToSave + ' into platforms.json');
+                    platformMetadata.save(projectRoot, platform, versionToSave);
+                }).then(function() {
                     if(opts.save || autosave){
                         // Save target into config.xml, overriding already existing settings
                         events.emit('log', '--save flag or autosave detected');
@@ -178,6 +186,24 @@ function addHelper(cmd, hooksRunner, projectRoot, targets, opts) {
     });
 }
 
+function save(hooksRunner, projectRoot, opts) {
+    var xml = cordova_util.projectConfig(projectRoot);
+    var cfg = new ConfigParser(xml);
+
+    // First, remove all platforms that are already in config.xml
+    cfg.getEngines().forEach(function(engine){
+        cfg.removeEngine(engine.name);
+    });
+
+    // Save installed platforms into config.xml
+    return platformMetadata.getPlatformVersions(projectRoot).then(function(platformVersions){
+        platformVersions.forEach(function(platVer){
+            cfg.addEngine(platVer.platform, platVer.version);
+        });
+        cfg.write();
+    });
+}
+
 // Downloads via npm or via git clone (tries both)
 // Returns a Promise
 function downloadPlatform(projectRoot, platform, version, opts) {
@@ -185,7 +211,18 @@ function downloadPlatform(projectRoot, platform, version, opts) {
     return Q().then(function() {
         if (cordova_util.isUrl(version)) {
             events.emit('log', 'git cloning: ' + version);
-            return lazy_load.git_clone(version);
+            var parts = version.split('#');
+            var git_url = parts[0];
+            var branchToCheckout = parts[1];
+            return lazy_load.git_clone(git_url, branchToCheckout).fail(function(err) {
+                // If it looks like a url, but cannot be cloned, try handling it differently.
+                // it's because it's a tarball of the form: 
+                //     - wp8@https://git-wip-us.apache.org/repos/asf?p=cordova-wp8.git;a=snapshot;h=3.7.0;sf=tgz
+                //     - https://api.github.com/repos/msopenTech/cordova-browser/tarball/my-branch
+                events.emit('verbose', err.message);
+                events.emit('verbose', 'Cloning failed. Let\'s try handling it as a tarball');
+                return lazy_load.based_on_config(projectRoot, target, opts);
+            });
         }
         return lazy_load.based_on_config(projectRoot, target, opts);
     }).then(function(libDir) {
@@ -231,20 +268,20 @@ function getPlatformDetailsFromDir(dir, platformIfKnown){
     }
 
     return Q({
-	libDir: libDir,
-	platform: platform,
+        libDir: libDir,
+        platform: platform,
         version: version
     });
 }
 
 function getVersionFromConfigFile(platform, cfg) {
     if(!platform || ( !(platform in platforms) )){
-	throw new CordovaError('Invalid platform: ' + platform);
+        throw new CordovaError('Invalid platform: ' + platform);
     }
 
     // Get appropriate version from config.xml
     var engine = _.find(cfg.getEngines(), function(eng){
-	return eng.name.toLowerCase() === platform.toLowerCase();
+        return eng.name.toLowerCase() === platform.toLowerCase();
     });
 
     return engine && engine.version;
@@ -264,18 +301,23 @@ function remove(hooksRunner, projectRoot, targets, opts) {
     }).then(function() {
         var config_json = config.read(projectRoot);
         var autosave =  config_json.auto_save_platforms || false;
-	if(opts.save || autosave){
-	    targets.forEach(function(target) {
-		var platformName = target.split('@')[0];
-		var xml = cordova_util.projectConfig(projectRoot);
-		var cfg = new ConfigParser(xml);
-		events.emit('log', 'Removing ' + target + ' from config.xml file ...');
-		cfg.removeEngine(platformName);
-		cfg.write();
-	    });
-	}
-    })
-    .then(function() {
+        if(opts.save || autosave){
+            targets.forEach(function(target) {
+                var platformName = target.split('@')[0];
+                var xml = cordova_util.projectConfig(projectRoot);
+                var cfg = new ConfigParser(xml);
+                events.emit('log', 'Removing ' + target + ' from config.xml file ...');
+                cfg.removeEngine(platformName);
+                cfg.write();
+        });
+    }
+    }).then(function() {
+        // Remove targets from platforms.json
+        targets.forEach(function(target) {
+            events.emit('verbose', 'Removing ' + target + ' from platforms.json file ...');
+            platformMetadata.remove(projectRoot, target);
+        });
+    }).then(function() {
         return hooksRunner.fire('after_platform_rm', opts);
     });
 }
@@ -461,11 +503,11 @@ function platform(command, targets, opts) {
             if (fs.existsSync(pPath)) return;
 
             var msg;
-	    // If target looks like a url, we will try cloning it with git
+        // If target looks like a url, we will try cloning it with git
             if (/[~:/\\.]/.test(t)) {
                 return;
             } else {
-		// Neither path, git-url nor platform name - throw.
+        // Neither path, git-url nor platform name - throw.
                 msg = 'Platform "' + t +
                 '" not recognized as a core cordova platform. See `' +
                 cordova_util.binname + ' platform list`.'
@@ -498,6 +540,8 @@ function platform(command, targets, opts) {
             return update(hooksRunner, projectRoot, targets, opts);
         case 'check':
             return check(hooksRunner, projectRoot);
+        case 'save':
+            return save(hooksRunner, projectRoot, opts);
         default:
             return list(hooksRunner, projectRoot);
     }
@@ -545,7 +589,6 @@ function getCreateArgs(platDetails, projectRoot, cfg, template_dir, opts) {
     if (opts.link) {
         args.push('--link');
     }
-
     return args;
 }
 
@@ -565,8 +608,8 @@ function installPluginsForNewPlatform(platform, projectRoot, cfg, opts) {
             var options = (function(){
                 // Get plugin preferences from config features if have any
                 // Pass them as cli_variables to plugman
-                var feature = cfg.getFeature(plugin);
-                var variables = feature && feature.variables;
+                var pluginEntry = cfg.getPlugin(plugin);
+                var variables = pluginEntry && pluginEntry.variables;
                 if (!!variables) {
                     events.emit('verbose', 'Found variables for "' + plugin + '". Processing as cli_variables.');
                     return {
@@ -587,7 +630,7 @@ function installPluginsForNewPlatform(platform, projectRoot, cfg, opts) {
 // The www dir is nuked on each prepare so we keep cordova.js in platform_www
 function copy_cordova_js(projectRoot, platform) {
     var platformPath = path.join(projectRoot, 'platforms', platform);
-    var parser = new platforms[platform].parser(platformPath);
+    var parser = platforms.getPlatformProject(platform, platformPath);
     var platform_www = path.join(platformPath, 'platform_www');
     shell.mkdir('-p', platform_www);
     shell.cp('-f', path.join(parser.www_dir(), 'cordova.js'), path.join(platform_www, 'cordova.js'));
