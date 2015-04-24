@@ -17,10 +17,11 @@
     under the License.
 */
 
-// Simple FS with some convenience properties
+// Simple FS wrapper with some convenience properties
 // - Refer to files relative to a root specified during creation
 // - Parent dirs don't need to exist, will be created if needed
-// - maybe later - caching / tagging / transactivity
+// - possible later extensions
+//   * caching / tagging / reverting
 
 /* jshint unused: false */
 var path = require('path');
